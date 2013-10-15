@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Canvas TEST</title>
+<script type="text/javascript">
+var CanvasController = (function(){
+	var cls = function(){	
+		var drawInitText = function(){
+			context.font="50px Arial";
+			context.fillStyle = "#dedede"
+			context.textAlign = 'center';
+			context.fillText('Drop file here', properties.width/2, properties.height/2, properties.width);
+			context.strokeRect(40,140,320,80);
+		}
+		var addEventHandler = function(obj, evt, handler) {
+			if(obj.addEventListener) {
+				// W3C method
+				obj.addEventListener(evt, handler, false);
+			} else if(obj.attachEvent) {
+				// IE method.
+				obj.attachEvent('on'+evt, handler);
+			} else {
+				// Old school method.
+				obj['on'+evt] = handler;
+			}
+		}
+		var sArc = 1.5;		
+		var createPieObject=function(item){
+			var value = parseInt((/[0-9]*/g).exec(item.value));
+			var arcLength = value/50;
+			var eArc = 0;
+			if(sArc>=1.5 && sArc<=2.0){
+				if(arcLength>2.0-sArc){
+					eArc = arcLength - (2.0-sArc);
+				} else {
+					eArc = sArc + arcLength;
+				}
+			} else {
+				eArc = sArc + arcLength;
+			}
+			var callback = function(){
+				this.r = 1.2*this.r;
+				drawPie(this);
+				
+			}
+			var deactive = function(){
+				this.r = 1.1*this.r;
+				clearPie(this)
+				this.r = properties.r;
+				drawPie(this);
+			}
+			var pie = {
+				centerX: properties.width/2,
+				centerY: properties.height/2,
+				r: properties.r,
+				sArc : sArc,
+				eArc : eArc,
+				arcLength: arcLength,
+				value: value,
+				format: properties.format,
+				callback : callback,
+				deactive: deactive,
+				label: item.label,
+				color: item.color
+			}
+			sArc = eArc;
+			return pie;
+		}
+		
+		var drawPie = function(pie){
+			context.beginPath();
+			context.arc(pie.centerX, pie.centerY, pie.r, pie.sArc*Math.PI, pie.eArc*Math.PI, false);
+			context.lineTo(pie.centerX, pie.centerY);
+			//context.lineTo(pie.centerX, pie.centerY-pie.r);
+			context.fillStyle=pie.color;
+			context.lineWidth=1;
+			context.fill();
+			//context.stroke();
+		}
+		
+		var clearPie = function(pie){
+			context.beginPath();
+			context.arc(pie.centerX, pie.centerY, pie.r, pie.sArc*Math.PI, pie.eArc*Math.PI, false);
+			context.lineTo(pie.centerX, pie.centerY);
+			//context.lineTo(pie.centerX, pie.centerY-pie.r);
+			context.fillStyle="#fff";
+			context.lineWidth=1;
+			context.fill();
+			//context.stroke();
+		}
+		
+		var clearAll = function(){
+			context.fillStyle = "#ffffff";
+			context.fillRect(0,0, properties.width, properties.height);
+		}
+		
+		var rgbToHex = function(r, g, b) {
+			if (r > 255 || g > 255 || b > 255)
+				throw "Invalid color component";
+			return ((r << 16) | (g << 8) | b).toString(16);
+		}
+		
+		var piePieces = new Array();
+		piePieces.findByColor = function(hex){
+			for(var i=0; i<this.length;i++){
+				//alert(this[i].color.toLowerCase().replace(/^\s+|\s+$/g, "")+"=="+hex.toLowerCase().replace(/^\s+|\s+$/g, ""));
+				if(this[i].color.toLowerCase().replace(/^\s+|\s+$/g, "") == hex.toLowerCase().replace(/^\s+|\s+$/g, "")){
+					return this[i];
+				}
+			}
+		};
+		
+		var properties = {
+			id : "canvas_box",
+			width : 400,
+			height: 400,
+			r: 150,
+			separator: ";",
+			format: "percent"
+		}
+		
+		
+		var dropCancelBubble = function(e) {
+			if (e.preventDefault){
+				e.preventDefault(); 
+			}
+			return false;
+		}
+		
+		
+		
+		var canvasBox = document.getElementById(properties.id);
+		var canvasOutherDiv = document.createElement("div");
+		canvasOutherDiv.setAttribute("style", "width:"+properties.width+"px; height:"+properties.height+"px; position: relative");
+		var canvas = document.createElement("canvas");
+		canvas.setAttribute("height", properties.height);
+		canvas.setAttribute("width", properties.width);
+		canvasOutherDiv.appendChild(canvas);
+		canvasBox.appendChild(canvasOutherDiv);		
+		
+		var canvasLeft = canvas.offsetLeft;
+		var canvasTop = canvas.offsetTop;
+		var eventObject;
+		var context;
+		var dataFromCvs = new Array();
+		if(undefined != canvas.getContext){
+			context = canvas.getContext('2d');
+		}
+		var parseCVS = function(text){
+			dataFromCvs = new Array();
+			var splitLines = text.split("\n");
+			for(var i = 0; i < splitLines.length; i++){
+				var split = splitLines[i].split(properties.separator);
+				dataFromCvs.push({
+					label: split[0],
+					value: split[1],
+					color: split[2]
+				});
+			}
+		}
+		drawInitText();
+		var drop = function (e) {
+			e = e || window.event; // get window.event if e argument missing (in IE)   
+			if (e.preventDefault) { e.preventDefault(); } // stops the browser from redirecting off to the image.
+			var dt = e.dataTransfer;
+			var files = dt.files;
+			for (var i=0; i<files.length; i++) {
+				var file = files[i];
+				var reader = new FileReader();
+				var loadend = function(e, file) {
+					var bin = this.result; 
+					parseCVS(bin);
+					clearAll();
+					for(var i = 0; i < dataFromCvs.length ; i++){
+						var pie = createPieObject(dataFromCvs[i])
+						piePieces.push(pie);
+						drawPie(pie)
+					}
+				}
+			  
+				addEventHandler(reader, 'loadend', loadend);
+		   
+				reader.readAsText(file);
+			}
+		  return false;
+		}
+		if(window.FileReader) { 
+			addEventHandler(canvasOutherDiv, 'dragover', dropCancelBubble);
+			addEventHandler(canvasOutherDiv, 'dragenter', dropCancelBubble);			
+			addEventHandler(canvasOutherDiv, 'drop', drop);			
+		} else { 
+		  document.getElementById(properties.id).innerHTML = 'Your browser does not support the HTML5 FileReader.';
+		}
+		
+		
+ 		addEventHandler(canvas,'click', function(event) {
+			var x = event.pageX - canvasLeft,
+				y = event.pageY - canvasTop;
+				
+				if(piePieces.activePie != undefined){
+					piePieces.activePie.deactive();
+				}
+
+				var p = context.getImageData(x, y, 1, 1).data; 
+				var hex = "#" + ("000000" + rgbToHex(p[0], p[1], p[2])).slice(-6);
+				var pie = piePieces.findByColor(hex);
+				if(pie!=undefined){
+					piePieces.activePie = pie;
+					pie.callback();
+				}
+		});
+		
+		
+	};		
+	return cls;
+})();
+
+window.onload = function(){
+	var obj = new CanvasController();
+}
+
+</script>
+</head>
+
+<body>
+<div id="canvas_box" />
+</body>
+
+</html>
