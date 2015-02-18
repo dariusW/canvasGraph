@@ -1,4 +1,4 @@
 canvasGraph
 ===========
 
-a simple canvas based graph display using features of html5
+a simple canvas based graph editor for editing svg graphics
